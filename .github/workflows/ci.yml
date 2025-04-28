@@ -19,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Set up uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v6
       - id: noxenvs-matrix
         run: |
           echo >>$GITHUB_OUTPUT noxenvs=$(
@@ -46,7 +46,7 @@ jobs:
         if: runner.os == 'macOS' && startsWith(matrix.noxenv, 'docs')
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v6
       - name: Run nox
         run: uvx nox -s "${{ matrix.noxenv }}" -- ${{ matrix.posargs }}
 
@@ -66,7 +66,7 @@ jobs:
         with:
           submodules: "recursive"
       - name: Set up uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
 
