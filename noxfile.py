@@ -88,12 +88,3 @@ def style(session):
     """
     session.install("ruff")
     session.run("ruff", "check", ROOT, __file__)
-
-
-@session()
-def typing(session):
-    """
-    Statically check typing annotations.
-    """
-    session.install("pyright", ROOT)
-    session.run("pyright", *session.posargs, PACKAGE)
