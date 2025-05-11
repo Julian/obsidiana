@@ -3,6 +3,7 @@ Python API for Obsidian vaults.
 """
 
 from datetime import date
+from functools import cached_property
 from pathlib import Path
 
 from attrs import frozen
@@ -41,11 +42,19 @@ class Note:
     path: Path
     _vault: Vault
 
+    @cached_property
     def frontmatter(self):
         """
         Frontmatter from all notes (along with the notes themselves).
         """
         return frontmatter.loads(self.path.read_text()).metadata
+
+    @cached_property
+    def tags(self):
+        """
+        The note's topical tags.
+        """
+        return frozenset(self.frontmatter.get("tags", ()))
 
     def subpath(self) -> str:
         """

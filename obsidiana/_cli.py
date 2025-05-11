@@ -61,8 +61,7 @@ def validate_frontmatter(vault):
         if note.awaiting_triage():
             continue
 
-        frontmatter = note.frontmatter()
-        errors = sorted(validator.iter_errors(frontmatter), key=relevance)
+        errors = sorted(validator.iter_errors(note.frontmatter), key=relevance)
         if not errors:
             continue
 
@@ -74,3 +73,26 @@ def validate_frontmatter(vault):
             rich.print(tree)
         else:
             rich.print("All notes are [green]valid[/green].")
+
+
+@main.command()
+@VAULT
+def todo(vault):
+    """
+    Show all notes with TODO tags.
+    """
+    for note in vault.notes():
+        # TODO: Include notes with TODO subsections.
+        if "todo" in note.tags or "todo/now" in note.tags:
+            rich.print(note.subpath())
+
+
+@main.command()
+@VAULT
+def anki(vault):
+    """
+    Show all notes labelled for Anki deck inclusion.
+    """
+    for note in vault.notes():
+        if "learn/anki" in note.tags:
+            rich.print(note.subpath())
