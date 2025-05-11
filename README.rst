@@ -12,7 +12,7 @@
   :alt: Build status
   :target: https://github.com/Julian/obsidiana/actions?query=workflow%3ACI
 
-A set of tools for working with (my? your?) Obsidian vault(s).
+A set of tools for working with (my? your?) Obsidian vault.
 
 
 Should I Use This?
