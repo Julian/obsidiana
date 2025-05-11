@@ -1,13 +1,17 @@
+from collections import Counter
 from pathlib import Path
 import json
 
 from jsonschema.exceptions import relevance
 from jsonschema.validators import validator_for
+from rich.console import Console
+from rich.table import Table
 from rich.tree import Tree
-import rich
 import rich_click as click
 
 from obsidiana.vault import Vault
+
+STDOUT = Console()
 
 
 class _Vault(click.ParamType):
@@ -69,10 +73,10 @@ def validate_frontmatter(vault):
         for error in errors:
             subtree.add(str(error))
 
-        if tree.children:
-            rich.print(tree)
-        else:
-            rich.print("All notes are [green]valid[/green].")
+    if tree.children:
+        STDOUT.print(tree)
+    else:
+        STDOUT.print("All notes are [green]valid[/green].")
 
 
 @main.command()
@@ -84,7 +88,27 @@ def todo(vault):
     for note in vault.notes():
         # TODO: Include notes with TODO subsections.
         if "todo" in note.tags or "todo/now" in note.tags:
-            rich.print(note.subpath())
+            STDOUT.print(note.subpath())
+
+
+@main.command()
+@VAULT
+def tags(vault):
+    """
+    Show all tags used in the vault, ordered by frequency.
+    """
+    tags = Counter()
+    for note in vault.notes():
+        tags.update(note.tags)
+
+    table = Table(show_header=True)
+    table.add_column("Tag", style="bold cyan")
+    table.add_column("Note Count", style="yellow", justify="right")
+
+    for tag, count in tags.most_common():
+        table.add_row(tag, str(count))
+
+    STDOUT.print(table)
 
 
 @main.command()
@@ -95,4 +119,4 @@ def anki(vault):
     """
     for note in vault.notes():
         if "learn/anki" in note.tags:
-            rich.print(note.subpath())
+            STDOUT.print(note.subpath())
