@@ -1,6 +1,7 @@
 from collections import Counter
 from pathlib import Path
 import json
+import os
 
 from jsonschema.exceptions import relevance
 from jsonschema.validators import validator_for
@@ -32,9 +33,17 @@ class _Vault(click.ParamType):
         return Vault(path=Path(value))
 
 
+def default_vault() -> Path:
+    """
+    A default vault location.
+    """
+    path = Path(os.environ.get("OBSIDIAN_VAULT", os.curdir))
+    return Vault(path=path)
+
+
 VAULT = click.option(
     "--vault",
-    default=lambda: Vault(path=Path.cwd()),
+    default=default_vault,
     type=_Vault(),
     help="the path to an Obsidian vault",
 )
