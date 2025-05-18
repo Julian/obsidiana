@@ -5,7 +5,9 @@ import os
 
 from jsonschema.exceptions import relevance
 from jsonschema.validators import validator_for
+from rich import box
 from rich.console import Console
+from rich.panel import Panel
 from rich.table import Table
 from rich.tree import Tree
 import rich_click as click
@@ -92,12 +94,29 @@ def validate_frontmatter(vault):
 @VAULT
 def todo(vault):
     """
-    Show all notes with TODO tags.
+    Show notes and tasks with todos.
     """
+    whole_note_todo = set()
+    tasks_table = Table("Note", "Task", title="Tasks")
+
     for note in vault.notes():
-        # TODO: Include notes with TODO subsections.
         if "todo" in note.tags or "todo/now" in note.tags:
-            STDOUT.print(note.subpath())
+            whole_note_todo.add(note)
+
+        tasks = [line for line in note.lines() if "#todo" in line]
+        if tasks:
+            panel = Panel("\n".join(tasks), box=box.SIMPLE)
+            tasks_table.add_row(note.subpath(), panel)
+
+    todo_panel = Panel(
+        "\n".join(sorted(note.subpath() for note in whole_note_todo)),
+        title="Notes with #todo tags",
+        border_style="cyan",
+    )
+    STDOUT.print(todo_panel)
+
+    if tasks_table.row_count > 0:
+        STDOUT.print(tasks_table)
 
 
 @main.command()

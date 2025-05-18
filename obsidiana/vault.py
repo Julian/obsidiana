@@ -43,11 +43,18 @@ class Note:
     _vault: Vault
 
     @cached_property
+    def _parsed(self):
+        """
+        The note's parsed contents.
+        """
+        return frontmatter.loads(self.path.read_text())
+
+    @property
     def frontmatter(self):
         """
         Frontmatter from all notes (along with the notes themselves).
         """
-        return frontmatter.loads(self.path.read_text()).metadata
+        return self._parsed.metadata
 
     @cached_property
     def tags(self):
@@ -55,6 +62,12 @@ class Note:
         The note's topical tags.
         """
         return frozenset(self.frontmatter.get("tags", ()))
+
+    def lines(self):
+        """
+        The note's body.
+        """
+        return self._parsed.content.splitlines()
 
     def subpath(self) -> str:
         """
