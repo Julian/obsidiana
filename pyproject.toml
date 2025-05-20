@@ -122,7 +122,7 @@ ignore = [
   "SIM300", # Not sure what heuristic this uses, but it's easily incorrect
   "SLF001",  # Private usage within this package itself is fine
   "TD",  # These TODO style rules are also silly
-  "UP007",  # We support 3.9
+  "TRY003",  # Some exception classes are essentially intended for free-form
 ]
 
 [tool.ruff.lint.flake8-pytest-style]
