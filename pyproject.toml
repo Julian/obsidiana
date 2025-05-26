@@ -26,7 +26,6 @@ classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
-
 ]
 dynamic = ["version"]
 dependencies = [
@@ -37,7 +36,7 @@ dependencies = [
 ]
 
 [project.scripts]
-  ob = "obsidiana._cli:main"
+ob = "obsidiana._cli:main"
 
 [project.urls]
 Issues = "https://github.com/Julian/obsidiana/issues/"
