@@ -10,6 +10,7 @@ on:
   schedule:
     # Daily at 7:30
     - cron: "30 7 * * *"
+  workflow_dispatch:
 
 jobs:
   list:
