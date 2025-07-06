@@ -2,6 +2,8 @@ from collections import Counter
 from pathlib import Path
 import json
 import os
+import re
+import sys
 
 from jsonschema.exceptions import relevance
 from jsonschema.validators import validator_for
@@ -14,7 +16,7 @@ import rich_click as click
 
 from obsidiana.vault import Vault
 
-STDOUT = Console()
+CONSOLE = Console()
 
 
 class _Vault(click.ParamType):
@@ -85,9 +87,9 @@ def validate_frontmatter(vault):
             subtree.add(str(error))
 
     if tree.children:
-        STDOUT.print(tree)
+        CONSOLE.print(tree)
     else:
-        STDOUT.print("All notes are [green]valid[/green].")
+        CONSOLE.print("All notes are [green]valid[/green].")
 
 
 @main.command()
@@ -113,10 +115,10 @@ def todo(vault):
         title="Notes with #todo tags",
         border_style="cyan",
     )
-    STDOUT.print(todo_panel)
+    CONSOLE.print(todo_panel)
 
     if tasks_table.row_count > 0:
-        STDOUT.print(tasks_table)
+        CONSOLE.print(tasks_table)
 
 
 @main.command()
@@ -136,7 +138,22 @@ def tags(vault):
     for tag, count in tags.most_common():
         table.add_row(tag, str(count))
 
-    STDOUT.print(table)
+    CONSOLE.print(table)
+
+
+@main.command()
+@VAULT
+def links(vault):
+    """
+    Output all external links across all notes in the vault.
+    """
+    link_re = re.compile(r"\[[^]]*\]\((https?://[^)]+)\)")
+
+    for note in vault.notes():
+        for line in note.lines():
+            for match in link_re.findall(line):
+                sys.stdout.write(match)
+                sys.stdout.write("\n")
 
 
 @main.command()
@@ -147,4 +164,5 @@ def anki(vault):
     """
     for note in vault.notes():
         if "learn/anki" in note.tags:
-            STDOUT.print(note.subpath())
+            sys.stdout.write(note.subpath())
+            sys.stdout.write("\n")
