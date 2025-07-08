@@ -30,7 +30,7 @@ classifiers = [
 dynamic = ["version"]
 dependencies = [
   "attrs",
-  "jsonschema",
+  "jsonschema[format]",
   "python-frontmatter",
   "rich-click",
 ]
