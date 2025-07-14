@@ -3,6 +3,7 @@ from pathlib import Path
 import json
 import os
 import re
+import subprocess
 import sys
 
 from jsonschema.exceptions import relevance
@@ -59,6 +60,33 @@ def main():
     """
     Tools for working with Obsidian vaults.
     """
+
+
+@main.command()
+@VAULT
+def up(vault):
+    """
+    Update the vault to the latest remote branch.
+    """
+    result = subprocess.run(
+        [  # noqa: S607
+            "git",
+            "for-each-ref",
+            "--sort=-committerdate",
+            "--format=%(refname:short)",
+            "refs/remotes",
+        ],
+        cwd=vault.path,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    latest_ref = result.stdout.splitlines()[0]
+    subprocess.run(  # noqa: S603
+        ["git", "merge", "--ff-only", latest_ref],  # noqa: S607
+        cwd=vault.path,
+        check=True,
+    )
 
 
 @main.command()
