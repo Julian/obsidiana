@@ -66,15 +66,15 @@ def main():
 @VAULT
 def up(vault):
     """
-    Update the vault to the latest remote branch.
+    Update the vault to the latest branch.
     """
+    subprocess.run(["git", "fetch"], cwd=vault.path, check=True)  # noqa: S607
     result = subprocess.run(
         [  # noqa: S607
             "git",
             "for-each-ref",
             "--sort=-committerdate",
             "--format=%(refname:short)",
-            "refs/remotes",
         ],
         cwd=vault.path,
         capture_output=True,
