@@ -1,4 +1,4 @@
-from collections import Counter
+from collections import Counter, defaultdict
 from pathlib import Path
 import json
 import os
@@ -6,7 +6,7 @@ import re
 import subprocess
 import sys
 
-from jsonschema.exceptions import relevance
+from jsonschema.exceptions import ValidationError, relevance
 from jsonschema.validators import validator_for
 from rich import box
 from rich.console import Console
@@ -102,11 +102,19 @@ def validate_frontmatter(vault):
 
     tree = Tree("[red]Invalid Notes[/red]")
 
+    ids = defaultdict(list)
     for note in vault.notes():
         if note.awaiting_triage():
             continue
 
+        seen = ids[note.id]
+        seen.append(note)
+
         errors = sorted(validator.iter_errors(note.frontmatter), key=relevance)
+        if len(seen) > 1:
+            rest = ", ".join(note.subpath() for note in seen)
+            error = ValidationError(f"ID is not unique (duplicated by {rest})")
+            errors.append(error)
         if not errors:
             continue
 

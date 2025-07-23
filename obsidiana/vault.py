@@ -52,9 +52,16 @@ class Note:
     @property
     def frontmatter(self):
         """
-        Frontmatter from all notes (along with the notes themselves).
+        (YAML) frontmatter from the note.
         """
         return self._parsed.metadata
+
+    @cached_property
+    def id(self):
+        """
+        The note's Obsidian ID.
+        """
+        return self.frontmatter.get("id", self.path.stem)
 
     @cached_property
     def tags(self):
