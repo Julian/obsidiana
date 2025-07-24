@@ -130,6 +130,22 @@ def validate_frontmatter(vault):
 
 @main.command()
 @VAULT
+def triage(vault):
+    """
+    Triage any notes waiting for review.
+    """
+    for note in vault.needs_triage():
+        edited = note.edit()
+        if edited.is_empty:
+            subprocess.run(  # noqa: S603
+                ["git", "rm", note.path],  # noqa: S607
+                cwd=vault.path,
+                check=True,
+            )
+
+
+@main.command()
+@VAULT
 def todo(vault):
     """
     Show notes and tasks with todos.

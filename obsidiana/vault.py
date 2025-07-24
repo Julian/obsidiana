@@ -5,8 +5,10 @@ Python API for Obsidian vaults.
 from datetime import date
 from functools import cached_property
 from pathlib import Path
+import os
+import subprocess
 
-from attrs import frozen
+from attrs import evolve, frozen
 import frontmatter
 
 
@@ -31,6 +33,12 @@ class Vault:
         return (
             Note(path=path, vault=self) for path in self.path.rglob("*.md")
         )
+
+    def needs_triage(self):
+        """
+        All notes in the vault which are awaiting triage.
+        """
+        return (note for note in self.notes() if note.awaiting_triage())
 
 
 @frozen
@@ -69,6 +77,25 @@ class Note:
         The note's topical tags.
         """
         return frozenset(self.frontmatter.get("tags", ()))
+
+    @cached_property
+    def is_empty(self):
+        """
+        Does this note have no content?
+
+        Notes with only empty lines are also empty.
+        """
+        return not any(line.strip() for line in self.lines())
+
+    def edit(self):
+        """
+        Edit this note in the configured text editor.
+
+        Returns a new note, as details will likely have changed.
+        """
+        editor = os.environ.get("VISUAL") or os.environ.get("EDITOR", "vi")
+        subprocess.run([editor, self.path], check=True)  # noqa: S603
+        return evolve(self)
 
     def lines(self):
         """
