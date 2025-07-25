@@ -103,8 +103,10 @@ def validate_frontmatter(vault):
     tree = Tree("[red]Invalid Notes[/red]")
 
     ids = defaultdict(list)
+    need_triage = 0
     for note in vault.notes():
         if note.awaiting_triage():
+            need_triage += 1
             continue
 
         seen = ids[note.id]
@@ -125,7 +127,8 @@ def validate_frontmatter(vault):
     if tree.children:
         CONSOLE.print(tree)
     else:
-        CONSOLE.print("All notes are [green]valid[/green].")
+        end = f" ({need_triage} need triage)" if need_triage else ""
+        CONSOLE.print(f"All notes are [green]valid[/green]{end}.")
 
 
 @main.command()
