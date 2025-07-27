@@ -68,7 +68,16 @@ def up(vault):
     """
     Update the vault to the latest branch.
     """
-    subprocess.run(["git", "fetch"], cwd=vault.path, check=True)  # noqa: S607
+    try:
+        subprocess.run(
+            ["git", "fetch"],  # noqa: S607
+            cwd=vault.path,
+            check=True,
+        )
+    except subprocess.CalledProcessError:
+        CONSOLE.print("[red]Unable to fetch new changes.[/red]")
+        sys.exit(1)
+
     result = subprocess.run(
         [  # noqa: S607
             "git",
@@ -82,11 +91,18 @@ def up(vault):
         check=True,
     )
     latest_ref = result.stdout.splitlines()[0]
-    subprocess.run(  # noqa: S603
-        ["git", "merge", "--ff-only", latest_ref],  # noqa: S607
-        cwd=vault.path,
-        check=True,
-    )
+
+    try:
+        subprocess.run(  # noqa: S603
+            ["git", "merge", "--ff-only", latest_ref],  # noqa: S607
+            cwd=vault.path,
+            check=True,
+        )
+    except subprocess.CalledProcessError:
+        CONSOLE.print(
+            "[red]There are local changes preventing updating.[/red]",
+        )
+        sys.exit(1)
 
 
 @main.command()
