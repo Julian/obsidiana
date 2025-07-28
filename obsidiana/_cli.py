@@ -133,6 +133,11 @@ def validate_frontmatter(vault):
             rest = ", ".join(note.subpath() for note in seen)
             error = ValidationError(f"ID is not unique (duplicated by {rest})")
             errors.append(error)
+
+        if note.status == "empty" and not note.is_empty:
+            error = ValidationError("Note is not empty but has empty status.")
+            errors.append(error)
+
         if not errors:
             continue
 
