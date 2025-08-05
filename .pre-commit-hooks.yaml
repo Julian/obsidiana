@@ -1,6 +1,6 @@
-- id: validate-frontmatter
-  name: Validate Obsidian Frontmatter
-  entry: ob validate-frontmatter
+- id: validate
+  name: Validate Obsidian vault contents
+  entry: ob validate
   language: python
   types: [markdown]
   pass_filenames: false

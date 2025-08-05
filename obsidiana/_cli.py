@@ -107,9 +107,11 @@ def up(vault):
 
 @main.command()
 @VAULT
-def validate_frontmatter(vault):
+def validate(vault):
     """
-    Validate the frontmatter of all notes in the vault against a JSON Schema.
+    Validate all note frontmatter in the vault against a JSON Schema.
+
+    Also apply some simple validation rules for the content itself.
     """
     schema = json.loads(vault.child("schema.json").read_text())
     Validator = validator_for(schema)
@@ -134,9 +136,30 @@ def validate_frontmatter(vault):
             error = ValidationError(f"ID is not unique (duplicated by {rest})")
             errors.append(error)
 
-        if note.status == "empty" and not note.is_empty:
-            error = ValidationError("Note is not empty but has empty status.")
-            errors.append(error)
+        if not note.is_empty:
+            if note.status == "empty":
+                error = ValidationError(
+                    "Note is not empty but has empty status.",
+                )
+                errors.append(error)
+            else:
+                # FIXME: Get rid of/reimplement python-frontmatter since it
+                #        makes this validation not possible (by eating \n's)
+                contents = note.path.read_text().removeprefix("---\n")
+                end, _, rest = contents.partition("---")
+                newline_count = 0
+                for each in rest:
+                    if each == "\n":
+                        newline_count += 1
+                    else:
+                        break
+
+                if newline_count != 2:  # noqa: PLR2004
+                    error = ValidationError(
+                        "Note content must have exactly one empty line "
+                        "after the frontmatter.",
+                    )
+                    errors.append(error)
 
         if not errors:
             continue
