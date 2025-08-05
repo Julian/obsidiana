@@ -18,6 +18,7 @@ import rich_click as click
 from obsidiana.vault import Vault
 
 CONSOLE = Console()
+MODE = 0o644
 
 
 class _Vault(click.ParamType):
@@ -123,43 +124,60 @@ def validate(vault):
     ids = defaultdict(list)
     need_triage = 0
     for note in vault.notes():
+        errors = []
+
+        mode = note.path.stat().st_mode & 0o777
+        if mode != MODE:
+            errors.append(
+                ValidationError(
+                    f"Note has file mode {mode:o} (instead of {MODE:o}).",
+                ),
+            )
+
         if note.awaiting_triage():
             need_triage += 1
-            continue
+        else:
+            seen = ids[note.id]
+            seen.append(note)
 
-        seen = ids[note.id]
-        seen.append(note)
-
-        errors = sorted(validator.iter_errors(note.frontmatter), key=relevance)
-        if len(seen) > 1:
-            rest = ", ".join(note.subpath() for note in seen)
-            error = ValidationError(f"ID is not unique (duplicated by {rest})")
-            errors.append(error)
-
-        if not note.is_empty:
-            if note.status == "empty":
-                error = ValidationError(
-                    "Note is not empty but has empty status.",
+            errors.extend(
+                sorted(validator.iter_errors(note.frontmatter), key=relevance),
+            )
+            if len(seen) > 1:
+                rest = ", ".join(note.subpath() for note in seen)
+                errors.append(
+                    ValidationError(
+                        f"ID is not unique (duplicated by {rest})",
+                    ),
                 )
-                errors.append(error)
-            else:
-                # FIXME: Get rid of/reimplement python-frontmatter since it
-                #        makes this validation not possible (by eating \n's)
-                contents = note.path.read_text().removeprefix("---\n")
-                end, _, rest = contents.partition("---")
-                newline_count = 0
-                for each in rest:
-                    if each == "\n":
-                        newline_count += 1
-                    else:
-                        break
 
-                if newline_count != 2:  # noqa: PLR2004
-                    error = ValidationError(
-                        "Note content must have exactly one empty line "
-                        "after the frontmatter.",
+            if not note.is_empty:
+                if note.status == "empty":
+                    errors.append(
+                        ValidationError(
+                            "Note is not empty but has empty status.",
+                        ),
                     )
-                    errors.append(error)
+                else:
+                    # FIXME: Get rid of/reimplement python-frontmatter since it
+                    #        makes this validation impossible (by eating \n's)
+                    contents = note.path.read_text().removeprefix("---\n")
+                    end, _, rest = contents.partition("---")
+                    newline_count = 0
+                    for each in rest:
+                        if each == "\n":
+                            newline_count += 1
+                        else:
+                            break
+
+                    if newline_count != 2:  # noqa: PLR2004
+                        errors.append(
+                            ValidationError(
+                                "Note content must have exactly one empty "
+                                "line after the frontmatter, "
+                                f"not {newline_count}.",
+                            ),
+                        )
 
         if not errors:
             continue
