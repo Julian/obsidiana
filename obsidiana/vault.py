@@ -106,7 +106,7 @@ class Note:
         Returns a new note, as details will likely have changed.
         """
         editor = os.environ.get("VISUAL") or os.environ.get("EDITOR", "vi")
-        subprocess.run([editor, self.path], check=True)  # noqa: S603
+        subprocess.run([editor, self.path], check=True, cwd=self._vault.path)  # noqa: S603
         return evolve(self)
 
     def lines(self):
