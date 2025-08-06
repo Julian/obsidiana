@@ -3,6 +3,7 @@ from pathlib import Path
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 
@@ -200,7 +201,13 @@ def triage(vault):
     Triage any notes waiting for review.
     """
     for note in vault.needs_triage():
-        edited = note.edit()
+        try:
+            edited = note.edit()
+        except subprocess.CalledProcessError as error:
+            cmd = shlex.join(str(arg) for arg in error.cmd)
+            CONSOLE.print(f"[red]{cmd}[/red] exited with non-zero status.")
+            break
+
         if edited.is_empty:
             subprocess.run(  # noqa: S603
                 ["git", "rm", note.path],  # noqa: S607
