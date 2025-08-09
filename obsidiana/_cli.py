@@ -176,7 +176,7 @@ def validate(vault):
                             ValidationError(
                                 "Note content must have exactly one empty "
                                 "line after the frontmatter, "
-                                f"not {newline_count}.",
+                                f"not {newline_count - 1}.",
                             ),
                         )
 
