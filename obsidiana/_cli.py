@@ -200,7 +200,8 @@ def triage(vault):
     """
     Triage any notes waiting for review.
     """
-    for note in vault.needs_triage():
+    i = 0
+    for i, note in enumerate(vault.needs_triage()):  # noqa: B007
         try:
             edited = note.edit()
         except subprocess.CalledProcessError as error:
@@ -214,6 +215,8 @@ def triage(vault):
                 cwd=vault.path,
                 check=True,
             )
+    if i == 0:
+        CONSOLE.print("No notes need triaging.")
 
 
 @main.command()
