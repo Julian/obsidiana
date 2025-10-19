@@ -190,7 +190,7 @@ def validate(vault):
     if tree.children:
         CONSOLE.print(tree)
     else:
-        end = f" ({need_triage} need triage)" if need_triage else ""
+        end = f" ({need_triage} needing triage)" if need_triage else ""
         CONSOLE.print(f"All notes are [green]valid[/green]{end}.")
 
 
