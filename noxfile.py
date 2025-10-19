@@ -9,7 +9,6 @@ ROOT = Path(__file__).parent
 PYPROJECT = ROOT / "pyproject.toml"
 PACKAGE = ROOT / "obsidiana"
 
-
 PYTHON = "3.13"
 
 nox.options.default_venv_backend = "uv"
@@ -30,7 +29,12 @@ def tests(session):
     """
     Run the test suite.
     """
-    session.install("pytest")
+    session.run_install(
+        "uv",
+        "sync",
+        f"--python={session.virtualenv.location}",
+        env={"UV_PROJECT_ENVIRONMENT": session.virtualenv.location},
+    )
 
     if session.posargs and session.posargs[0] == "coverage":
         if len(session.posargs) > 1 and session.posargs[1] == "github":
@@ -53,7 +57,7 @@ def tests(session):
                     stdout=summary,
                 )
     else:
-        session.run("python", "-m", "pytest", *session.posargs, PACKAGE)
+        session.run("pytest", *session.posargs, PACKAGE)
 
 
 @session()
