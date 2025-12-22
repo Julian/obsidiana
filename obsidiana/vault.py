@@ -6,10 +6,14 @@ from datetime import date
 from functools import cached_property
 from pathlib import Path
 import os
+import re
 import subprocess
 
 from attrs import evolve, frozen
 import frontmatter
+
+_HEADING = re.compile("^#+ ")
+_WIKILINK = re.compile(r"\[\[[^[]+\]\]")
 
 
 @frozen
@@ -95,9 +99,14 @@ class Note:
         Notes with only empty lines, or whose only line is the note
         heading are also empty.
         """
-        return not any(
-            line.strip() for line in self.lines() if not line.startswith("# ")
-        )
+        for line in self.lines():
+            if not line or _HEADING.match(line):
+                continue
+            parts = line.split()
+            if all(_WIKILINK.match(part) for part in parts):
+                continue
+            return False
+        return True
 
     def edit(self):
         """
