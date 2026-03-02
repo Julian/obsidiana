@@ -152,33 +152,39 @@ def validate(vault):
                     ),
                 )
 
-            if not note.is_empty:
-                if note.status == "empty":
+            if note.is_empty:
+                if note.status == "finished":
                     errors.append(
                         ValidationError(
-                            "Note is not empty but has empty status.",
+                            "Note is empty but has a finished status.",
                         ),
                     )
-                else:
-                    # FIXME: Get rid of/reimplement python-frontmatter since it
-                    #        makes this validation impossible (by eating \n's)
-                    contents = note.path.read_text().removeprefix("---\n")
-                    end, _, rest = contents.partition("---")
-                    newline_count = 0
-                    for each in rest:
-                        if each == "\n":
-                            newline_count += 1
-                        else:
-                            break
+            elif note.status == "empty":
+                errors.append(
+                    ValidationError(
+                        "Note is not empty but has empty status.",
+                    ),
+                )
+            else:
+                # FIXME: Get rid of/reimplement python-frontmatter since it
+                #        makes this validation impossible (by eating \n's)
+                contents = note.path.read_text().removeprefix("---\n")
+                end, _, rest = contents.partition("---")
+                newline_count = 0
+                for each in rest:
+                    if each == "\n":
+                        newline_count += 1
+                    else:
+                        break
 
-                    if newline_count != 2:  # noqa: PLR2004
-                        errors.append(
-                            ValidationError(
-                                "Note content must have exactly one empty "
-                                "line after the frontmatter, "
-                                f"not {newline_count - 1}.",
-                            ),
-                        )
+                if newline_count != 2:  # noqa: PLR2004
+                    errors.append(
+                        ValidationError(
+                            "Note content must have exactly one empty "
+                            "line after the frontmatter, "
+                            f"not {newline_count - 1}.",
+                        ),
+                    )
 
         if not errors:
             continue
