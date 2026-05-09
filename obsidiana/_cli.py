@@ -14,6 +14,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 from rich.tree import Tree
+import networkx as nx
 import rich_click as click
 
 from obsidiana.vault import Vault
@@ -299,3 +300,63 @@ def anki(vault):
         if "learn/anki" in note.tags:
             sys.stdout.write(note.subpath())
             sys.stdout.write("\n")
+
+
+@main.group(name="list")
+def list_():
+    """
+    List notes by graph relationship.
+    """
+
+
+def _print_notes(notes):
+    for note in sorted(notes, key=lambda n: n.subpath()):
+        sys.stdout.write(note.subpath())
+        sys.stdout.write("\n")
+
+
+@list_.command()
+@VAULT
+def isolated(vault):
+    """
+    Notes with no incoming or outgoing references.
+    """
+    _print_notes(nx.isolates(vault.graph()))
+
+
+@list_.command(aliases=["orphans"])
+@VAULT
+def sources(vault):
+    """
+    Notes with no incoming references.
+    """
+    graph = vault.graph()
+    _print_notes(note for note, degree in graph.in_degree() if degree == 0)
+
+
+@list_.command(aliases=["leaves"])
+@VAULT
+def sinks(vault):
+    """
+    Notes with no outgoing references.
+    """
+    graph = vault.graph()
+    _print_notes(note for note, degree in graph.out_degree() if degree == 0)
+
+
+@list_.command()
+@VAULT
+def broken(vault):
+    """
+    Wikilinks which don't resolve to any note in the vault.
+
+    Output is one ``note<TAB>target`` pair per line.
+    """
+    broken_links = vault.graph().graph["broken"]
+    rows = sorted(
+        (note.subpath(), target)
+        for note, targets in broken_links.items()
+        for target in targets
+    )
+    for subpath, target in rows:
+        sys.stdout.write(f"{subpath}\t{target}\n")

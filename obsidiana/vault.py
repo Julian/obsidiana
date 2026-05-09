@@ -10,10 +10,16 @@ import re
 import subprocess
 
 from attrs import evolve, frozen
+from markdown_it import MarkdownIt
 import frontmatter
+import networkx as nx
 
 _HEADING = re.compile("^#+ ")
 _WIKILINK = re.compile(r"\[\[[^[]+\]\]")
+_WIKILINK_TARGET = re.compile(
+    r"\[\[([^|#\]\n]+)(?:#[^|\]\n]*)?(?:\|[^\]\n]*)?\]\]",
+)
+_MD = MarkdownIt()
 
 
 @frozen
@@ -43,6 +49,59 @@ class Vault:
         All notes in the vault which are awaiting triage.
         """
         return (note for note in self.notes() if note.awaiting_triage())
+
+    def graph(self) -> nx.DiGraph:
+        """
+        The reference graph of all notes in the vault.
+
+        Notes are nodes; a directed edge ``a -> b`` means ``a`` contains a
+        wikilink that resolves to ``b``. Self-references are not represented
+        as edges, since for graph queries like "leaves" the user-facing
+        intent is references to *other* notes.
+
+        Wikilink targets which don't resolve to any note (or which resolve
+        ambiguously to multiple) are recorded in the graph-level attribute
+        ``broken``, mapping each note to the set of unresolved targets it
+        references.
+
+        Resolution attempts an exact subpath match first, then falls back
+        to matching by file stem when that stem is unique within the vault.
+        Resolution is case-insensitive, matching Obsidian's behavior on
+        case-insensitive filesystems.
+        """
+        notes = list(self.notes())
+
+        by_stem: dict[str, list[Note]] = {}
+        by_subpath: dict[str, list[Note]] = {}
+        for note in notes:
+            by_stem.setdefault(note.path.stem.lower(), []).append(note)
+            by_subpath.setdefault(note.subpath().lower(), []).append(note)
+
+        def resolve(target: str) -> Note | None:
+            target = target.lower()
+            matches = by_subpath.get(target, ())
+            if len(matches) == 1:
+                return matches[0]
+            matches = by_stem.get(target, ())
+            return matches[0] if len(matches) == 1 else None
+
+        graph: nx.DiGraph = nx.DiGraph()
+        graph.add_nodes_from(notes)
+        broken: dict[Note, frozenset[str]] = {}
+
+        for note in notes:
+            unresolved: set[str] = set()
+            for target in note.links:
+                resolved = resolve(target)
+                if resolved is None:
+                    unresolved.add(target)
+                elif resolved is not note:
+                    graph.add_edge(note, resolved)
+            if unresolved:
+                broken[note] = frozenset(unresolved)
+
+        graph.graph["broken"] = broken
+        return graph
 
 
 @frozen
@@ -124,12 +183,37 @@ class Note:
         """
         return self._parsed.content.splitlines()
 
+    @cached_property
+    def links(self):
+        """
+        The wikilink targets referenced from this note's body.
+
+        Section anchors (``#section``) and display aliases (``|alias``) are
+        stripped; only the link target itself is returned. Wikilinks
+        appearing inside fenced or inline code are excluded — markdown-it
+        is used to tokenize the body so code regions can be skipped without
+        hand-rolling a stripper.
+        """
+        targets: set[str] = set()
+        for token in _MD.parse(self._parsed.content):
+            if token.type != "inline" or not token.children:
+                continue
+            for child in token.children:
+                if child.type != "text":
+                    continue
+                for match in _WIKILINK_TARGET.finditer(child.content):
+                    targets.add(match.group(1).strip())
+        return frozenset(targets)
+
     def subpath(self) -> str:
         """
-        The subpath of this note inside of the fault, without extension.
+        The subpath of this note inside of the vault, without extension.
+
+        Always uses forward-slash separators, matching Obsidian's display
+        convention (and wikilink syntax) regardless of the host platform.
         """
-        path = self.path.relative_to(self._vault.path)
-        return str(path).removesuffix(".md")
+        path = self.path.relative_to(self._vault.path).with_suffix("")
+        return path.as_posix()
 
     def awaiting_triage(self):
         """
