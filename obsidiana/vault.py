@@ -158,9 +158,18 @@ class Vault:
     def notes(self):
         """
         All notes within the vault.
+
+        Hidden paths (any component starting with ``.``) are skipped, so
+        ``.obsidian/`` plugin files, ``.trash/``, ``.git/``, and the
+        like don't pollute graph queries or validation.
         """
         return (
-            Note(path=path, vault=self) for path in self.path.rglob("*.md")
+            Note(path=path, vault=self)
+            for path in self.path.rglob("*.md")
+            if not any(
+                part.startswith(".")
+                for part in path.relative_to(self.path).parts
+            )
         )
 
     def needs_triage(self):
@@ -237,7 +246,7 @@ class Note:
         """
         The note's parsed contents.
         """
-        return frontmatter.loads(self.path.read_text())
+        return frontmatter.loads(self.path.read_text(encoding="utf-8"))
 
     @property
     def frontmatter(self):

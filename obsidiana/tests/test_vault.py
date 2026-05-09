@@ -201,6 +201,25 @@ class TestLinks:
         assert find(vault, "A").links == wiki("B")
 
 
+class TestNotes:
+    def test_skips_obsidian_internal_dir(self, vault):
+        write_note(vault, ".obsidian/workspace", "junk")
+        write_note(vault, "A", "")
+        assert sorted(n.subpath() for n in vault.notes()) == ["A"]
+
+    def test_skips_dot_prefixed_files(self, vault):
+        write_note(vault, ".hidden", "junk")
+        write_note(vault, "A", "")
+        assert sorted(n.subpath() for n in vault.notes()) == ["A"]
+
+    def test_skips_dot_prefixed_subdirs(self, vault):
+        # ``.git/``, ``.trash/``, etc. should never surface as notes.
+        write_note(vault, ".trash/old", "")
+        write_note(vault, "subdir/.private", "")
+        write_note(vault, "A", "")
+        assert sorted(n.subpath() for n in vault.notes()) == ["A"]
+
+
 class TestVaultPath:
     def test_relative_path_made_absolute(self, tmp_path, monkeypatch):
         # The CLI default is ``Path(".")``; markdown-link resolution

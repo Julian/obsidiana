@@ -116,7 +116,7 @@ def validate(vault):
 
     Also apply some simple validation rules for the content itself.
     """
-    schema = json.loads(vault.child("schema.json").read_text())
+    schema = json.loads(vault.child("schema.json").read_text(encoding="utf-8"))
     Validator = validator_for(schema)
     Validator.check_schema(schema)
     validator = Validator(schema, format_checker=Validator.FORMAT_CHECKER)
@@ -169,7 +169,9 @@ def validate(vault):
             else:
                 # FIXME: Get rid of/reimplement python-frontmatter since it
                 #        makes this validation impossible (by eating \n's)
-                contents = note.path.read_text().removeprefix("---\n")
+                contents = note.path.read_text(
+                    encoding="utf-8",
+                ).removeprefix("---\n")
                 end, _, rest = contents.partition("---")
                 newline_count = 0
                 for each in rest:

@@ -21,6 +21,18 @@ Should I Use This?
 If you're not @Julian, possibly not as-is, but I like making my tools public in case they do turn out useful to you, or even so you can tell me if you do similar things yourself, so feel free to peruse or use.
 
 
+Graph Queries
+-------------
+
+``ob list`` queries the reference graph of the vault.
+Wikilinks, markdown relative links, and frontmatter aliases all count as references.
+
+* ``ob list isolated`` — notes with no references in or out
+* ``ob list sources`` (alias ``orphans``) — notes with no incoming references
+* ``ob list sinks`` (alias ``leaves``) — notes with no outgoing references
+* ``ob list broken`` — references that don't resolve to any note in the vault
+
+
 What's in a Name
 ----------------
 
