@@ -310,9 +310,8 @@ def list_():
 
 
 def _print_notes(notes):
-    for note in sorted(notes, key=lambda n: n.subpath()):
-        sys.stdout.write(note.subpath())
-        sys.stdout.write("\n")
+    for subpath in sorted(note.subpath() for note in notes):
+        sys.stdout.write(f"{subpath}\n")
 
 
 @list_.command()
@@ -348,7 +347,7 @@ def sinks(vault):
 @VAULT
 def broken(vault):
     """
-    Wikilinks which don't resolve to any note in the vault.
+    References which don't resolve to any note in the vault.
 
     Output is one ``note<TAB>target`` pair per line.
     """
