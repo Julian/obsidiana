@@ -5,13 +5,12 @@ Python API for Obsidian vaults.
 from datetime import date
 from functools import cached_property
 from pathlib import Path
-from urllib.parse import unquote
 import os
 import posixpath
 import re
 import subprocess
 
-from attrs import evolve, frozen
+from attrs import evolve, field, frozen
 from markdown_it import MarkdownIt
 from url import URL, URLError
 import frontmatter
@@ -24,7 +23,6 @@ _WIKILINK_TARGET = re.compile(
 )
 _MD = MarkdownIt()
 _NOTE_EXTS = frozenset({"", ".md"})
-_URL_ROOT = URL.parse("file:///")
 
 
 def _is_note_target(target: str) -> bool:
@@ -107,19 +105,24 @@ class MarkdownLink(Reference):
         return _unique(index.by_subpath.get(self.target.lower(), ()))
 
 
-def _resolve_md_href(href: str, base: URL) -> str | None:
+def _resolve_md_href(href: str, base: URL, vault_path: Path) -> str | None:
     """
     Convert a markdown-link ``href`` into a vault-relative subpath.
 
     Returns ``None`` for anchors-only, external URLs (any href with a
-    URL scheme), malformed URLs, and other hrefs that don't refer to a
-    note in the vault.
+    URL scheme), malformed URLs, hrefs that escape the vault, and other
+    hrefs that don't refer to a note in the vault.
 
-    The href is resolved against ``base`` (typically
-    ``file:///{note_dir}/``), so the WHATWG URL machinery handles
-    relative-vs-absolute paths, fragment stripping, and ``..``
-    normalization in one step.
+    The href is resolved against ``base`` (the directory URL of the
+    containing note), so the WHATWG URL machinery handles
+    relative-vs-absolute paths, percent-decoding, fragment stripping,
+    and ``..`` normalization in one step.
     """
+    if href.startswith("/"):
+        # Obsidian convention: ``/foo.md`` is vault-rooted, not
+        # filesystem-absolute. Re-root against the vault directory.
+        base = URL.from_directory_path(vault_path)
+        href = href.lstrip("/")
     if not href or href.startswith("#"):
         return None
     try:
@@ -128,10 +131,14 @@ def _resolve_md_href(href: str, base: URL) -> str | None:
         return None
     if joined.scheme != "file":
         return None
-    target = unquote(joined.path).lstrip("/")
-    if not target or not _is_note_target(target):
+    try:
+        absolute = joined.to_file_path()
+        relative = absolute.relative_to(vault_path)
+    except (URLError, ValueError):
         return None
-    return target.removesuffix(".md")
+    if relative.suffix.lower() not in _NOTE_EXTS or absolute.is_dir():
+        return None
+    return relative.with_suffix("").as_posix()
 
 
 @frozen
@@ -140,7 +147,7 @@ class Vault:
     An Obsidian vault.
     """
 
-    path: Path
+    path: Path = field(converter=lambda p: Path(p).absolute())
 
     def child(self, *segments: str) -> Path:
         """
@@ -323,26 +330,24 @@ class Note:
         without hand-rolling a stripper.
         """
         refs: set[Reference] = set()
-        rel_parent = self.path.parent.relative_to(self._vault.path)
-        relative_dir = rel_parent.as_posix()
-        base = (
-            URL.parse(f"file:///{relative_dir}/")
-            if relative_dir != "."
-            else _URL_ROOT
-        )
+        base = URL.from_directory_path(self.path.parent)
         for token in _MD.parse(self._parsed.content):
             if token.type != "inline" or not token.children:
                 continue
             for child in token.children:
                 if child.type == "text":
                     for match in _WIKILINK_TARGET.finditer(child.content):
-                        target = match.group(1).strip()
+                        target = match.group(1).strip().removeprefix("/")
                         if not target or not _is_note_target(target):
                             continue
                         refs.add(Wikilink(target=target.removesuffix(".md")))
                 elif child.type == "link_open":
                     href = (child.attrs or {}).get("href", "")
-                    resolved = _resolve_md_href(str(href), base)
+                    resolved = _resolve_md_href(
+                        str(href),
+                        base,
+                        self._vault.path,
+                    )
                     if resolved is not None:
                         refs.add(MarkdownLink(target=resolved))
         return frozenset(refs)

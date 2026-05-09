@@ -35,7 +35,7 @@ dependencies = [
   "networkx>=3.6.1",
   "python-frontmatter",
   "rich-click",
-  "url-py>=0.20.0",
+  "url-py>=0.21.0",
 ]
 
 [project.scripts]

@@ -109,6 +109,23 @@ class TestLinks:
         write_note(vault, "folder/A", "[abs](/other/top.md)")
         assert find(vault, "A").links == md("other/top")
 
+    def test_markdown_link_escaping_vault_skipped(self, vault):
+        write_note(vault, "folder/A", "[esc](../../etc/passwd) [r](B.md)")
+        assert find(vault, "A").links == md("folder/B")
+
+    def test_wikilink_vault_rooted_slash_stripped(self, vault):
+        write_note(vault, "A", "[[/folder/B]]")
+        write_note(vault, "folder/B", "")
+        assert find(vault, "A").links == wiki("folder/B")
+
+    def test_markdown_link_to_directory_skipped(self, vault):
+        # ``folder`` exists as a real directory; links pointing at it
+        # (with or without trailing slash) must not register as note refs.
+        write_note(vault, "folder/Note", "")
+        write_note(vault, "A", "[s](folder/) [b](folder) [r](B.md)")
+        write_note(vault, "B", "")
+        assert find(vault, "A").links == md("B")
+
     def test_markdown_link_url_decoded(self, vault):
         write_note(vault, "A", "[enc](my%20note.md)")
         assert find(vault, "A").links == md("my note")
@@ -182,6 +199,20 @@ class TestLinks:
     def test_whitespace_only_wikilink_excluded(self, vault):
         write_note(vault, "A", "[[   ]] and [[B]]")
         assert find(vault, "A").links == wiki("B")
+
+
+class TestVaultPath:
+    def test_relative_path_made_absolute(self, tmp_path, monkeypatch):
+        # The CLI default is ``Path(".")``; markdown-link resolution
+        # builds a ``file://`` base URL which requires absolute paths,
+        # so ``Vault.path`` must absolutize on construction.
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "A.md").write_text("[link](B.md)")
+        (tmp_path / "B.md").write_text("")
+        v = Vault(path=Path())
+        assert v.path.is_absolute()
+        a = next(note for note in v.notes() if note.path.stem == "A")
+        assert a.links == md("B")
 
 
 class TestAliases:
