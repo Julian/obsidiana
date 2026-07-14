@@ -1,4 +1,5 @@
 from collections import Counter, defaultdict
+from difflib import get_close_matches
 from pathlib import Path
 import json
 import os
@@ -7,12 +8,13 @@ import shlex
 import subprocess
 import sys
 
-from jsonschema.exceptions import ValidationError, relevance
+from jsonschema.exceptions import ValidationError, best_match
 from jsonschema.validators import validator_for
 from rich import box
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+from rich.text import Text
 from rich.tree import Tree
 import networkx as nx
 import rich_click as click
@@ -108,24 +110,118 @@ def up(vault):
         sys.exit(1)
 
 
+def _closest(value: object, candidates) -> str | None:
+    """
+    The single closest string candidate to ``value``, or ``None``.
+
+    Used to turn a validation failure into a "did you mean ...?" hint.
+    Only strings are compared -- a non-string value can't be a typo of
+    anything in a way worth suggesting.
+    """
+    if not isinstance(value, str):
+        return None
+    options = [each for each in candidates if isinstance(each, str)]
+    matches = get_close_matches(value, options, n=1)
+    return matches[0] if matches else None
+
+
+def _suggest(error: ValidationError) -> str:
+    """
+    The error's message, plus a "did you mean ...?" hint when one fits.
+
+    The common failure in a notes vault is a typo -- a misspelled
+    ``status`` value or a mistyped frontmatter key -- so for ``enum`` and
+    ``additionalProperties`` errors we look for a near-match among the
+    allowed values or property names.
+    """
+    if error.validator == "enum":
+        hint = _closest(error.instance, error.validator_value)
+    elif error.validator == "additionalProperties":
+        schema = error.schema if isinstance(error.schema, dict) else {}
+        allowed = schema.get("properties", {})
+        hint = next(
+            (
+                match
+                for key in error.instance
+                if key not in allowed
+                and (match := _closest(key, allowed)) is not None
+            ),
+            None,
+        )
+    else:
+        hint = None
+
+    if hint is None:
+        return error.message
+    return f"{error.message} (did you mean {hint!r}?)"
+
+
+def _location(error: ValidationError):
+    """
+    A sort key placing whole-note errors first, then fields by path.
+    """
+    resolved = best_match([error])
+    return resolved.json_path, resolved.message
+
+
+def _format_error(error: ValidationError) -> Text:
+    """
+    Render a validation error compactly as ``field.path: message``.
+
+    ``best_match`` descends ``anyOf``/``oneOf``/``not`` errors into the
+    branch the instance most nearly matched -- turning the unhelpful "is
+    not valid under any of the given schemas" into the specific leaf
+    failure -- and returns the error untouched when it has no context, so
+    it is always safe to call.
+
+    A ``Text`` (not a markup string) is returned so a note value
+    containing ``[...]`` can't be misparsed as console markup. Errors with
+    no instance path (our hand-built content rules, and root-level
+    failures such as ``required``) render as just their message.
+    """
+    error = best_match([error])
+    message = _suggest(error)
+    if not error.absolute_path:
+        return Text(message)
+    where = error.json_path.removeprefix("$.")
+    return Text.assemble((where, "cyan"), ": ", message)
+
+
 @main.command()
+@click.argument("only", required=False)
 @VAULT
-def validate(vault):
+def validate(vault, only):
     """
     Validate all note frontmatter in the vault against a JSON Schema.
 
-    Also apply some simple validation rules for the content itself.
+    Also apply some simple validation rules for the content itself. Pass
+    ONLY (a note subpath or name) to validate just that one note.
     """
     schema = json.loads(vault.child("schema.json").read_text(encoding="utf-8"))
     Validator = validator_for(schema)
     Validator.check_schema(schema)
     validator = Validator(schema, format_checker=Validator.FORMAT_CHECKER)
 
+    notes = vault.notes()
+    if only is not None:
+        want = only.removesuffix(".md").lower()
+        notes = [
+            note
+            for note in notes
+            if want in {note.subpath().lower(), note.path.stem.lower()}
+        ]
+        if not notes:
+            CONSOLE.print(
+                Text.assemble("No note matching ", (only, "red"), "."),
+            )
+            sys.exit(1)
+
     tree = Tree("[red]Invalid Notes[/red]")
 
     ids = defaultdict(list)
     need_triage = 0
-    for note in vault.notes():
+    problems = 0
+    for note in notes:
         errors = []
 
         mode = note.path.stat().st_mode & 0o777
@@ -142,9 +238,7 @@ def validate(vault):
             seen = ids[note.id]
             seen.append(note)
 
-            errors.extend(
-                sorted(validator.iter_errors(note.frontmatter), key=relevance),
-            )
+            errors.extend(validator.iter_errors(note.frontmatter))
             if len(seen) > 1:
                 rest = ", ".join(note.subpath() for note in seen)
                 errors.append(
@@ -192,12 +286,19 @@ def validate(vault):
         if not errors:
             continue
 
-        subtree = tree.add(note.subpath())
-        for error in errors:
-            subtree.add(str(error))
+        problems += len(errors)
+        subtree = tree.add(Text(note.subpath()))
+        for error in sorted(errors, key=_location):
+            subtree.add(_format_error(error))
 
     if tree.children:
         CONSOLE.print(tree)
+        triage = f" ({need_triage} needing triage)" if need_triage else ""
+        CONSOLE.print(
+            f"\n[red]{problems}[/red] problem(s) across "
+            f"[red]{len(tree.children)}[/red] note(s){triage}.",
+        )
+        sys.exit(1)
     else:
         end = f" ({need_triage} needing triage)" if need_triage else ""
         CONSOLE.print(f"All notes are [green]valid[/green]{end}.")
