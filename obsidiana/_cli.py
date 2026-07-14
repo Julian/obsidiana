@@ -60,7 +60,7 @@ VAULT = click.option(
 
 
 @click.group(context_settings=dict(help_option_names=["--help", "-h"]))
-@click.version_option(prog_name="ob")
+@click.version_option(prog_name="ob", package_name="obsidiana")
 def main():
     """
     Tools for working with Obsidian vaults.
